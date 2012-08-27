@@ -1,8 +1,8 @@
-DEPS := deps/jiffy deps/gproc deps/webmachine deps/proper deps/lager
-DIALYZER_SRC := $(wildcard src/*.erl)
-DIALYZER := dialyzer -nn
+DEPS = deps/jiffy deps/gproc deps/webmachine deps/proper deps/lager
+GENERATED_SRC_FILES = ebin/crest_lexer.beam ebin/crest_parser.beam
+DIALYZER = dialyzer -nn
 
-all: dialyzer compile all_tests
+all: dialyzer
 
 shell: compile
 ifdef NORUN
@@ -32,6 +32,9 @@ allclean: depclean clean
 depclean:
 	@rm -rf deps
 
+$(DEPS):
+	@$(REBAR) get-deps
+
 compile: $(DEPS)
 	@$(REBAR) compile
 
@@ -41,15 +44,13 @@ compile_app:
 plt_clean:
 	@$(DIALYZER) --build_plt --apps erts kernel stdlib crypto public_key ssl
 
-plt:
-	@$(DIALYZER) --add_to_plt --src deps/*/src
+plt: $(DEPS)
+	@$(DIALYZER) --add_to_plt deps/*/ebin
 
-dialyzer:
-
-	$(DIALYZER) -Wunderspecs -Werror_handling -Wrace_conditions --src -I deps $(DIALYZER_SRC)
-
-$(DEPS):
-	@$(REBAR) get-deps
+dialyzer: plt compile
+	@rm -f $(GENERATED_SRC_FILES)
+	$(DIALYZER) -Wunderspecs -Werror_handling -Wrace_conditions -I deps -r ebin
+	@rebar skip_deps=true compile >& /dev/null
 
 eunit: compile
 	@$(REBAR) -v skip_deps=true eunit
@@ -62,6 +63,6 @@ test: eunit
 tags:
 	@find src deps -name "*.[he]rl" -print | etags -
 
-distclean: relclean
+distclean:
 	@rm -rf deps
 	@$(REBAR) clean
