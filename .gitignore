@@ -1,0 +1,7 @@
+.eunit/*
+deps/*
+ebin/*
+src/crest_parser.erl
+src/creset_lexer.erl
+log/*
+erl_crash.dump

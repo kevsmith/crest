@@ -1,0 +1,17 @@
+{application, crest,
+ [
+  {description, "Concurrent REST-based Coordination"},
+  {vsn, "0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+		  lager,
+		  mochiweb,
+		  gproc,
+		  webmachine
+                 ]},
+  {mod, {crest_app, []}},
+  {env, [{ip, "0.0.0.0"},
+         {port, 9999}]}
+ ]}.
