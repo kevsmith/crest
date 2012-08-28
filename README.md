@@ -26,19 +26,20 @@ Details about the API are given below. All POST and PUT bodies MUST be valid JSO
 > Returns 200 on creation, 409 if value already exists.
 
 2. Update a CAS value
-> PUT /values/<name>
+    PUT /values/<name>
 Supports several different update operations based on the JSON body.
-> 1. Update to literal value
-> {"action": "write", "value": 100}
-> 2. Atomic increment
-> {"action": "incr", "value": 1}
-> 3. Atomic decrement
-> {"action": "decr", "value": 1}
-> Returns 204 on successful update
++ Update to literal value
+    {"action": "write", "value": 100}
++ Atomic increment
+    {"action": "incr", "value": 1}
++ Atomic decrement
+    {"action": "decr", "value": 1}
+All return 200 on successful update.
+
 3. Conditionally updating a CAS value
-> PUT /values/<name>
+    PUT /values/<name>
 Uses the same bodies as above with an additional preconditions hash:
-> {"action": "decr", "value": 1,
->  "preconditions": [{"test": 100}]}
-> Write operation occurs if all preconditions are met. Returns 200.
-> If a precondition fails, 412 is returned.
+    {"action": "decr", "value": 1,
+    "preconditions": [{"test": 100}]}
+Write operation occurs if all preconditions are met. Returns 200.
+If a precondition fails, returns 412.
