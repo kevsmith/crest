@@ -101,6 +101,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    lager:info("~p terminating: ~p~n", [?MODULE, self()]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -109,7 +110,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 -spec call(BarrierRef::crest_entity_ref(), Msg::crest_barrier_msg(), Timeout::pos_integer()) -> term() | no_return().
 call(BarrierRef, Msg, Timeout) when is_binary(BarrierRef) ->
-    case gproc:lookup_local_name(BarrierRef) of
+    case gproc:lookup_local_name(?CREST_BARRIER(BarrierRef)) of
         undefined ->
             exit({{not_found, BarrierRef}, [{?MODULE, call, [BarrierRef, Msg]}]});
 

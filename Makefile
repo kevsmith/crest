@@ -8,12 +8,12 @@ shell: compile
 ifdef NORUN
 	@/bin/echo "Starting VM ONLY"
 	@/bin/sleep 1
-	@erl -pa ./deps/*/ebin -pa ./ebin -boot start_sasl
+	@erl -K true -pa ./deps/*/ebin -pa ./ebin -boot start_sasl
 endif
 ifndef NORUN
 	@/bin/echo "Starting VM AND crest"
 	@/bin/sleep 1
-	@erl -pa ./deps/*/ebin -pa ./ebin -eval "crest_app:manual_start()."
+	@erl -K true -pa ./deps/*/ebin -pa ./ebin -eval "crest_app:manual_start()."
 endif
 
 use_locked_config = $(wildcard USE_REBAR_LOCKED)

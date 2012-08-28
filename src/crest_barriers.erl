@@ -28,7 +28,7 @@
 %% API
 -export([start_link/0,
          exists/1,
-         get/2]).
+         get/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -44,23 +44,23 @@ start_link() ->
 
 -spec exists(crest_entity_name()) -> boolean().
 exists(Name) ->
-    case gproc:lookup_local_name(Name) of
+    case gproc:lookup_local_name(?CREST_BARRIER(Name)) of
         undefined ->
             false;
         Pid when is_pid(Pid) ->
             true
     end.
 
--spec get(crest_entity_name(), pos_integer()) -> created | exists.
-get(Name, Count) when is_binary(Name),
+-spec get(crest_entity_name(), pos_integer(), boolean()) -> created | exists.
+get(Name, Count, Recycle) when is_binary(Name),
                       Count >= 0 ->
     case gproc:lookup_local_name(?CREST_BARRIER(Name)) of
         undefined ->
-            case create_barrier(Name, Count) of
+            case create_barrier(Name, Count, Recycle) of
                 {ok, _Pid} ->
                     created;
                 {error, already_allocated} ->
-                    ?MODULE:get(Name, Count)
+                    ?MODULE:get(Name, Count, Recycle)
             end;
         _Pid ->
             exists
@@ -75,5 +75,5 @@ init([]) ->
           [{crest_barrier, {crest_barrier, start_link, []},
             temporary, brutal_kill, worker, [crest_barrier]}]}}.
 
-create_barrier(Name, Count) ->
-    supervisor:start_child(?SERVER, [Name, Count]).
+create_barrier(Name, Count, Recycle) ->
+    supervisor:start_child(?SERVER, [Name, Count, Recycle]).

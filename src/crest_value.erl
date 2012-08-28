@@ -153,7 +153,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    error_logger:info_msg("~p shutting down~n", [self()]),
+    lager:info("~p terminating: ~p~n", [?MODULE, self()]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
