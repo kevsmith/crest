@@ -1,6 +1,6 @@
 ## CREST: (Concurrency | Coordination) + REST
 CREST is an experiment to see what happens when concepts like CAS (atomic compare-and-swap) and
-[barriers](http://en.wikipedia.org/wiki/Barrier_(computer_science)) are exposed in a RESTful
+[barriers](http://bit.ly/Pk6UaQ) are exposed in a RESTful
 interface.
 
 Details about the API are given below. All POST and PUT bodies MUST be valid JSON.
