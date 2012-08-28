@@ -1,5 +1,5 @@
 ## CREST: (Concurrency | Coordination) + REST
-CREST is an experiment to see what happens when concepts like CAS (atomic compare-and-swap) and
+CREST is an experiment to see what happens when concepts like [CAS](http://en.wikipedia.org/wiki/Compare-and-swap) and
 [barriers](http://bit.ly/Pk6UaQ) are exposed in a RESTful
 interface.
 
