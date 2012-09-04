@@ -2,17 +2,18 @@ Definitions.
 
 D      = [0-9]
 L      = [a-zA-Z0-9\._-]
-N      = [a-zA-Z\._-][a-zA-Z0-9\._-]
+N      = [a-zA-Z]([a-zA-Z0-9\._-])*
 QUOTE  = \"
-SEP    = [_\-]
 WS     = ([\000-\s]|%.*)
 COMP   = (<|>|=|>=|=<|!=).
 
 Rules.
 {D}+         :  {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
+\-{D}+    :  {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
 {D}+\.{D}+   :  {token, {float, TokenLine, list_to_float(TokenChars)}}.
 '{L}+'       :  S = strip(TokenChars, TokenLen),
                 {token, {string, TokenLine, list_to_binary(S)}}.
+;            :  {token, {eos, TokenLine, TokenChars}}.
 {N}+         :  {token, {name, TokenLine, list_to_binary(TokenChars)}}.
 {WS}+        :  skip_token.
 {COMP}       :  emit_comparator(TokenLine, strip_ws(TokenChars)).
@@ -47,7 +48,7 @@ emit_comparator(TokenLine, "<") ->
     {token, {comparator, TokenLine, '<'}};
 emit_comparator(TokenLine, ">") ->
     {token, {comparator, TokenLine, '>'}};
-emit_comparator(TokenLine, "=") ->
+emit_comparator(TokenLine, "==") ->
     {token, {comparator, TokenLine, '=='}};
 emit_comparator(TokenLine, "!=") ->
     {token, {comparator, TokenLine, '/='}};

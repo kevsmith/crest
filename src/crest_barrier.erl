@@ -54,7 +54,12 @@ start_link(Name, Count, Recycle) ->
 
 -spec await(crest_entity_ref(), timeout()) -> no_return().
 await(BarrierRef, Timeout) ->
-    call(BarrierRef, {await, self()}, Timeout).
+    case catch call(BarrierRef, {await, self()}, Timeout) of
+        {'EXIT', _} ->
+            {error, broken};
+        Result ->
+            Result
+    end.
 
 destroy(BarrierRef) ->
     call(BarrierRef, destroy, 5000).

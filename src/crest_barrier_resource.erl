@@ -97,7 +97,7 @@ delete_resource(Req, State) ->
 
 to_json(Req, #state{barrierref=BarrierRef}=State) ->
     Timeout = read_timeout(Req),
-    case crest_barrier:await(BarrierRef, Timeout) of
+    case catch crest_barrier:await(BarrierRef, Timeout) of
         ok ->
             {{halt, 204}, Req, State};
         {error, broken} ->

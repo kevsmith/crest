@@ -58,8 +58,30 @@ PUT /values/<name>
 ````
 Uses the same bodies as above with an additional preconditions hash:
 ````
-{"action": "decr", "value": 1,
-"preconditions": [{"test": 100}]}
+{"action": "decr", "value": 1}
 ````
 Write operation occurs if all preconditions are met. Returns 200.
 If a precondition fails, returns 412.
+
+#### CAS Values and Preconditions
+PUT and POST requests can optionally evaluate preconditions before updating the target variable.
+Preconditions are submitted in a request header named `X-Crest-Expects`. Multiple preconditions
+must be separated by a semicolon. Here are a few examples:
+
+````
+X-Crest-Expects: user_count
+````
+Succeeds only if the CAS value named `user_count` exists.
+
+````
+X-Crest-Expects: user_count > 5
+````
+Succeeds only if `user_count` is greater than 5.
+
+````
+X-Crest-Expects: web_servers == 8;db_ready == 'true'
+````
+Succeeds only if `web_servers` equals 8 and db_ready is equal to the string 'true'.
+
+Preconditions understand the following comparison operators: <,>,==, >=, =<. Referring
+to a variable without an operator checks for it's existence.

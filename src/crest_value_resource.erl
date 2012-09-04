@@ -34,7 +34,8 @@
          from_json/2]).
 
 -record(state, {valueref,
-                pbody}).
+                expects,
+                action}).
 
 -include("crest.hrl").
 -include("crest_value.hrl").
@@ -53,26 +54,35 @@ resource_exists(Req, State) ->
 malformed_request(Req, State) ->
     malformed_request(wrq:method(Req), Req, State).
 
-malformed_request(Action, Req, State) ->
-    case validate_body(Action, Req) of
-        error ->
-            {true, Req, State};
-        Body ->
-            {false, Req, State#state{pbody=Body}}
+malformed_request(Method, Req, State) ->
+    case set_expectations(Req, State) of
+        {true, State1} ->
+            case validate_body(Method, Req) of
+                error ->
+                    {true, Req, State1};
+                WriteAction ->
+                    {false, Req, State1#state{action=WriteAction}}
+            end;
+        {false, State1} ->
+            {true, Req, State1}
     end.
 
 allow_missing_post(Req, State) ->
     {true, Req, State}.
 
-process_post(Req, #state{valueref=ValueRef, pbody=PBody}=State) ->
+process_post(Req, #state{valueref=ValueRef, action={write, Value}, expects=Expects}=State) ->
     case wrq:get_req_header("Accept", Req) of
         "application/json" ->
-            {value, {_, Value}, _} = lists:keytake(<<"value">>, 1, PBody),
-            case crest_values:get(ValueRef, Value) of
-                created ->
-                    {true, Req, State};
-                exists ->
-                    {{halt, 409}, Req, State}
+            case Expects() of
+                true ->
+                    case crest_values:get(ValueRef, Value) of
+                        created ->
+                            {true, Req, State};
+                        exists ->
+                            {{halt, 409}, Req, State}
+                    end;
+                {false, FailedVar, Current, Op, Proposed} ->
+                    failed_precondition(FailedVar, Current, Op, Proposed, Req, State)
             end;
         _ ->
             {{halt, 406}, Req, State}
@@ -84,30 +94,12 @@ content_types_accepted(Req, State) ->
 content_types_provided(Req, State) ->
     {[{"application/json", to_json}], Req, State}.
 
-from_json(Req, #state{valueref=ValueRef, pbody=Body}=State) ->
-    case translate_write(ValueRef, Body) of
-        {Conditions, Write} when is_tuple(Write) ->
-            case check_conditions(Conditions) of
-                true ->
-                    do_write(ValueRef, Write, Req, State);
-                {false, Name, {Current, ProposedCurent}} ->
-                    failed_precondition(Name, Current, ProposedCurent, Req, State)
-            end;
-        Write ->
-            do_write(ValueRef, Write, Req, State)
-    end.
-
--spec check_conditions([] | [tuple()]) -> true | {false, crest_entity_name(), {crest_value(), crest_value()}}.
-check_conditions([]) ->
-    true;
-check_conditions([Condition|T]) ->
-    {value, {_, Name}, _} = lists:keytake(<<"name">>, 1, Condition),
-    {value, {_, Proposed}, _} = lists:keytake(<<"value">>, 1, Condition),
-    case crest_value:read(Name) of
-        Proposed ->
-            check_conditions(T);
-        Value ->
-            {false, Name, {Value, Proposed}}
+from_json(Req, #state{valueref=ValueRef, action=Action, expects=Expects}=State) ->
+    case Expects() of
+        true ->
+            do_write(ValueRef, Action, Req, State);
+        {false, Name, Current, Op, Proposed} ->
+            failed_precondition(Name, Current, Op, Proposed, Req, State)
     end.
 
 do_write(ValueRef, Write, Req, State) ->
@@ -117,13 +109,8 @@ do_write(ValueRef, Write, Req, State) ->
             Req1 = wrq:set_resp_body(Resp, Req),
             {true, Req1, State};
         {error, precondition_failed, {Proposed, Current}} ->
-            failed_precondition(ValueRef, Current, Proposed, Req, State)
+            failed_precondition(ValueRef, Current, '==', Proposed, Req, State)
     end.
-
-failed_precondition(Name, Current, ProposedCurrent, Req, State) ->
-    Resp = jiffy:encode({[{<<"name">>, Name}, {<<"current">>, Current}, {<<"proposed_current">>, ProposedCurrent}]}),
-    Req1 = wrq:set_resp_body(Resp, Req),
-    {{halt, 412}, Req1, State}.
 
 to_json(Req, #state{valueref=ValueRef}=State) ->
     Value = crest_value:read(ValueRef),
@@ -145,37 +132,17 @@ validate_body(Action, Req) when Action == 'POST';
                     lager:error("Error decoding JSON: ~p  ~p~n", [Body, Reason]),
                     error;
                 {DecodedBody} ->
-                    case lists:keytake(<<"value">>, 1, DecodedBody) of
-                        false ->
-                            error;
-                        _ ->
-                            DecodedBody
-                    end
+                    translate_write(DecodedBody)
             end
     end;
 validate_body(_Action, Req) ->
     wrq:req_body(Req).
 
-translate_write(ValueRef, Body) ->
+translate_write(Body) ->
     Action = translate_action(lists:keytake(<<"action">>, 1, Body)),
     {value, {_, Value}, _} = lists:keytake(<<"value">>, 1, Body),
-    case lists:keytake(<<"preconditions">>, 1, Body) of
-        false ->
-            {Action, Value};
-        {value, {_, Conditions0}, _} ->
-            Conditions = [C || {C} <- Conditions0],
-            process_self_reference(ValueRef, Action, Value, Conditions, [])
-    end.
+    {Action, Value}.
 
-process_self_reference(_Name, Action, Value, [], Accum) ->
-    {lists:reverse(Accum), {Action, Value}};
-process_self_reference(Name, Action, Value, [Condition|T], Accum) ->
-    case lists:keytake(<<"value">>, 1, Condition) of
-        false ->
-            process_self_reference(Name, Action, Value, T, [Condition|Accum]);
-        {value, {_, OldValue}, _} ->
-            {Accum ++ T, {Action, OldValue, Value}}
-    end.
 
 translate_action(false) ->
     write;
@@ -183,3 +150,29 @@ translate_action({value, {_, <<"incr">>}, _}) ->
     incr;
 translate_action({value, {_, <<"decr">>}, _}) ->
     decr.
+
+failed_precondition(Name, Current, Op, ProposedCurrent, Req, State) ->
+    Resp = jiffy:encode({[{<<"name">>, Name}, {<<"op">>, translate_op(Op)}, {<<"current">>, Current},
+                          {<<"proposed_current">>, ProposedCurrent}]}),
+    Req1 = wrq:set_resp_body(Resp, Req),
+    {{halt, 412}, Req1, State}.
+
+set_expectations(Req, State) ->
+    case wrq:get_req_header(?EXPECTS_HEADER, Req) of
+        undefined ->
+            {true, State#state{expects=fun always_true/0}};
+        Header ->
+            case crest_parser:string(Header) of
+                {ok, Expects} ->
+                    {true, State#state{expects=Expects}};
+                _Error ->
+                    {false, State}
+            end
+    end.
+
+always_true() ->
+    true.
+
+translate_op(Op) ->
+    list_to_binary(atom_to_list(Op)).
+
