@@ -23,7 +23,6 @@
 -behaviour(gen_server).
 
 -include("crest.hrl").
--include("crest_value.hrl").
 
 -type crest_value_msg() :: {lock, pid()} | {unlock, pid()} | {write, pid(), write_term()} |
                            destroy | read | value_type.
@@ -52,6 +51,7 @@
          code_change/3]).
 
 -record(state, {value :: crest_value(),
+                name  :: crest_entity_name(),
                 lock_monitor :: reference() | undefined,
                 lock_owner :: pid() | undefined}).
 
@@ -90,8 +90,8 @@ read(ValueRef) ->
     call(ValueRef, read).
 
 -spec write(ValueRef::crest_entity_ref(), write_term()) -> {ok, {OldValue::crest_value(),
-                                                NewValue :: crest_value()}} | write_error() |
-                                          no_return().
+                                                                 NewValue :: crest_value()}} | write_error() |
+                                                           no_return().
 write(ValueRef, Value) ->
     validate_write_term(Value),
     call(ValueRef, {write, self(), Value}).
@@ -103,7 +103,7 @@ type(ValueRef) ->
 init([Name, StartingValue]) ->
     case catch gproc:add_local_name(?CREST_VALUE(Name)) of
         true ->
-            {ok, #state{value=StartingValue}};
+            {ok, #state{name=Name, value=StartingValue}};
         {'EXIT', {badarg, _}} ->
             {error, already_allocated}
     end.
@@ -165,21 +165,39 @@ code_change(_OldVsn, State, _Extra) ->
                                                {type_error(), #state{}}.
 perform_write({write, NewValue}, State) ->
     {ok, NewValue, State#state{value=NewValue}};
-perform_write({write, OldValue, NewValue}, #state{value=Value}=State) ->
-    case OldValue == Value of
+perform_write({write, NewValue, Precondition}, #state{name=Name, value=Value}=State) ->
+    case Precondition(Name, Value) of
         true ->
             {ok, NewValue, State#state{value=NewValue}};
-        false ->
-            {error, precondition_failed, {OldValue, Value}}
+        Error ->
+            Error
     end;
 perform_write({incr, Amt}, #state{value=Value}=State) when is_number(Value),
                                                            is_number(Amt) ->
     NewValue = Value + Amt,
     {ok, NewValue, State#state{value=NewValue}};
+perform_write({incr, Amt, Precondition}, #state{name=Name, value=Value}=State) when is_number(Value),
+                                                                                    is_number(Amt) ->
+    case Precondition(Name, Value) of
+        true ->
+            NewValue = Value + Amt,
+            {ok, NewValue, State#state{value=NewValue}};
+        Error ->
+            Error
+    end;
 perform_write({decr, Amt}, #state{value=Value}=State) when is_number(Value),
                                                            is_number(Amt) ->
     NewValue = Value - Amt,
     {ok, NewValue, State#state{value=NewValue}};
+perform_write({decr, Amt, Precondition}, #state{name=Name, value=Value}=State) when is_number(Value),
+                                                                                    is_number(Amt) ->
+    case Precondition(Name, Value) of
+        true ->
+            NewValue = Value - Amt,
+            {ok, NewValue, State#state{value=NewValue}};
+        Error ->
+            Error
+    end;
 perform_write({Op, _Amt}, State) when Op == incr;
                                       Op == decr ->
     {{error, wrong_type}, State}.
@@ -187,14 +205,20 @@ perform_write({Op, _Amt}, State) when Op == incr;
 validate_write_term({write, Value}) when is_binary(Value);
                                          is_number(Value) ->
     ok;
-validate_write_term({write, OldValue, NewValue}) when (is_binary(OldValue) orelse
-                                                           is_number(OldValue)) andalso
-                                                      (is_binary(NewValue) orelse
-                                                           is_number(NewValue)) ->
+validate_write_term({write, Value, Precondition}) when (is_binary(Value) orelse
+                                                       is_number(Value)) andalso
+                                                       is_function(Precondition) ->
     ok;
 validate_write_term({decr, Amt}) when is_number(Amt) ->
     ok;
+validate_write_term({decr, Amt, Precondition}) when is_number(Amt),
+                                                    is_function(Precondition) ->
+    ok;
+
 validate_write_term({incr, Amt}) when is_number(Amt) ->
+    ok;
+validate_write_term({incr, Amt, Precondition}) when is_number(Amt),
+                                                    is_function(Precondition) ->
     ok;
 validate_write_term(Term) ->
     lager:error("Bad write term: ~p~n", [Term]),

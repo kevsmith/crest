@@ -45,17 +45,17 @@ string(Text) ->
         {error, {Line, crest_parser, Error}} ->
             lager:error("Parse error on ~p: ~s~n", [Line, Error]);
         {ok, Funs} ->
-            {ok, fun() -> eval_all(Funs) end}
+            {ok, fun(ContextName, CurrentValue) -> eval_all(ContextName, CurrentValue, Funs) end}
     end.
 
-eval_all(F) when is_function(F) ->
-    F();
-eval_all([H]) when is_function(H) ->
-    H();
-eval_all([H|T]) when is_function(H) ->
-    case H() of
+eval_all(CN, CV, F) when is_function(F) ->
+    F(CN, CV);
+eval_all(CN, CV, [H]) when is_function(H) ->
+    H(CN, CV);
+eval_all(CN, CV, [H|T]) when is_function(H) ->
+    case H(CN, CV) of
         true ->
-            eval_all(T);
+            eval_all(CN, CV, T);
         False ->
             False
     end.
@@ -65,7 +65,7 @@ build_evaluator({name, _, Name}) ->
 
 build_evaluator({name, _, Name}, {comparator, _, Comp}, Value) ->
     ValEval = build_value_evaluator(Value),
-    [fun() -> evaluate_criteria(Name, ValEval, Comp) end].
+    [fun(CN, CV) -> evaluate_criteria(CN, CV, Name, ValEval, Comp) end].
 
 build_value_evaluator({float, _, V}) ->
     fun() -> V end;
@@ -85,7 +85,15 @@ evaluate_criteria(Name) ->
             true
     end.
 
-evaluate_criteria(Name, ProposedEval, Comp) ->
+evaluate_criteria(Name, Current, Name, ProposedEval, Comp) ->
+    Proposed = ProposedEval(),
+    case erlang:Comp(Current, Proposed) of
+        false ->
+            {false, Name, Current, Comp, Proposed};
+        true ->
+            true
+    end;
+evaluate_criteria(_CN, _CV, Name, ProposedEval, Comp) ->
     Current = crest_value:read(Name),
     Proposed = ProposedEval(),
     case erlang:Comp(Current, Proposed) of

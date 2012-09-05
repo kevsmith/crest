@@ -38,7 +38,6 @@
                 action}).
 
 -include("crest.hrl").
--include("crest_value.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
 init(_) ->
@@ -57,7 +56,7 @@ malformed_request(Req, State) ->
 malformed_request(Method, Req, State) ->
     case set_expectations(Req, State) of
         {true, State1} ->
-            case validate_body(Method, Req) of
+            case validate_body(Method, Req, State) of
                 error ->
                     {true, Req, State1};
                 WriteAction ->
@@ -94,15 +93,7 @@ content_types_accepted(Req, State) ->
 content_types_provided(Req, State) ->
     {[{"application/json", to_json}], Req, State}.
 
-from_json(Req, #state{valueref=ValueRef, action=Action, expects=Expects}=State) ->
-    case Expects() of
-        true ->
-            do_write(ValueRef, Action, Req, State);
-        {false, Name, Current, Op, Proposed} ->
-            failed_precondition(Name, Current, Op, Proposed, Req, State)
-    end.
-
-do_write(ValueRef, Write, Req, State) ->
+from_json(Req, #state{valueref=ValueRef, action=Write}=State) ->
     case crest_value:write(ValueRef, Write) of
         {ok, {Old, New}} ->
             Resp = jiffy:encode({[{<<"old">>, Old}, {<<"new">>, New}]}),
@@ -121,7 +112,7 @@ delete_resource(Req, #state{valueref=ValueRef}=State) ->
     ok = crest_value:destroy(ValueRef),
     {true, Req, State}.
 
-validate_body(Action, Req) when Action == 'POST';
+validate_body(Action, Req, #state{expects=Expects}) when Action == 'POST';
                                 Action == 'PUT' ->
     case wrq:req_body(Req) of
         "" ->
@@ -132,16 +123,20 @@ validate_body(Action, Req) when Action == 'POST';
                     lager:error("Error decoding JSON: ~p  ~p~n", [Body, Reason]),
                     error;
                 {DecodedBody} ->
-                    translate_write(DecodedBody)
+                    translate_write(DecodedBody, Expects)
             end
     end;
-validate_body(_Action, Req) ->
+validate_body(_Action, Req, _State) ->
     wrq:req_body(Req).
 
-translate_write(Body) ->
+translate_write(Body, undefined) ->
     Action = translate_action(lists:keytake(<<"action">>, 1, Body)),
     {value, {_, Value}, _} = lists:keytake(<<"value">>, 1, Body),
-    {Action, Value}.
+    {Action, Value};
+translate_write(Body, Expects) ->
+    Action = translate_action(lists:keytake(<<"action">>, 1, Body)),
+    {value, {_, Value}, _} = lists:keytake(<<"value">>, 1, Body),
+    {Action, Value, Expects}.
 
 
 translate_action(false) ->

@@ -21,7 +21,6 @@
 -module(crest_values).
 
 -include("crest.hrl").
--include("crest_value.hrl").
 
 -behaviour(supervisor).
 
