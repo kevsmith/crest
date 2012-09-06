@@ -52,21 +52,14 @@ Supports several different update operations based on the JSON body.
 ````
 All return 200 on successful update.
 
-3. Conditionally updating a CAS value
-````
-PUT /values/<name>
-````
-Uses the same bodies as above with an additional preconditions hash:
-````
-{"action": "decr", "value": 1}
-````
 Write operation occurs if all preconditions are met. Returns 200.
-If a precondition fails, returns 412.
+
 
 #### CAS Values and Preconditions
 PUT and POST requests can optionally evaluate preconditions before updating the target variable.
 Preconditions are submitted in a request header named `X-Crest-Expects`. Multiple preconditions
-must be separated by a semicolon. Here are a few examples:
+must be separated by a semicolon. If a precondition fails then the server returns a 412 status
+code. Here are a few examples:
 
 ````
 X-Crest-Expects: user_count
