@@ -52,9 +52,6 @@ Supports several different update operations based on the JSON body.
 ````
 All return 200 on successful update.
 
-Write operation occurs if all preconditions are met. Returns 200.
-
-
 #### CAS Values and Preconditions
 PUT and POST requests can optionally evaluate preconditions before updating the target variable.
 Preconditions are submitted in a request header named `X-Crest-Expects`. Multiple preconditions
