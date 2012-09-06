@@ -76,7 +76,9 @@ process_post(Req, #state{valueref=ValueRef, action={write, Value}, expects=Expec
                 true ->
                     case crest_values:get(ValueRef, Value) of
                         created ->
-                            {true, Req, State};
+                            Json = {[{<<"name">>, ValueRef}, {<<"value">>, Value}]},
+                            Req1 = wrq:append_to_response_body(jiffy:encode(Json), Req),
+                            {true, Req1, State};
                         exists ->
                             {{halt, 409}, Req, State}
                     end;
@@ -113,14 +115,14 @@ delete_resource(Req, #state{valueref=ValueRef}=State) ->
     {true, Req, State}.
 
 validate_body(Action, Req, #state{expects=Expects}) when Action == 'POST';
-                                Action == 'PUT' ->
+                                                         Action == 'PUT' ->
     case wrq:req_body(Req) of
         "" ->
             error;
         Body ->
             case catch jiffy:decode(Body) of
                 {error, Reason} ->
-                    lager:error("Error decoding JSON: ~p  ~p~n", [Body, Reason]),
+                    lager:error("Error parsing ~p: ~p~n", [Body, Reason]),
                     error;
                 {DecodedBody} ->
                     translate_write(DecodedBody, Expects)
