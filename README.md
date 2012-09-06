@@ -19,7 +19,7 @@ Returns 204 on creation, 409 if barrier already exists
 GET /barriers/<name>?t=30000
 ````
 "t" is timeout in milliseconds and is optional. By default all clients will wait
-10 seconds if "t" is ommitted.
+10 seconds if "t" is omitted.
 Returns 204 when all expected parties have successfully joined.
 Returns 408 if wait times out or another waiting party "hangs up".
 
