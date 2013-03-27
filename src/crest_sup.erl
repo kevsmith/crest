@@ -52,7 +52,7 @@ init([]) ->
                  {dispatch, Dispatch}],
 
     {ok, {{one_for_one, 5, 10}, [child_spec(webmachine_mochiweb, [WebConfig], web),
-                                 child_spec(crest_values, [], supervisor),
+                                 child_spec(crest_channels, [], supervisor),
                                  child_spec(crest_barriers, [], supervisor)]}}.
 
 

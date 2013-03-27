@@ -1,0 +1,1 @@
+-type crest_barrier_msg() :: {await, Caller::pid()} | destroy.

@@ -1,4 +1,4 @@
-DEPS = deps/jiffy deps/gproc deps/webmachine deps/proper deps/lager
+DEPS = deps/jiffy deps/gproc deps/webmachine deps/lager deps/eleveldb
 GENERATED_SRC_FILES = ebin/crest_lexer.beam ebin/crest_parser.beam
 DIALYZER = dialyzer -nn
 DIALYZER_PLT = crest.plt

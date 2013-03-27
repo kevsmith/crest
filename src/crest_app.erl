@@ -32,7 +32,8 @@
 %% ===================================================================
 
 manual_start() ->
-    start_deps([lager,
+    start_deps([crypto,
+                lager,
                 mochiweb,
                 gproc,
                 webmachine,
