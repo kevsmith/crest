@@ -5,7 +5,10 @@ L      = [a-zA-Z0-9\._-]
 N      = [a-zA-Z]([a-zA-Z0-9\._-])*
 QUOTE  = \"
 WS     = ([\000-\s]|%.*)
-COMP   = (<|>|=|>=|=<|!=).
+BOOL   = (\&\&|\|\|)
+COMP   = (<|>|>=|=<|!=|==)
+LPAREN = \(
+RPAREN = \).
 
 Rules.
 {D}+         :  {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
@@ -17,6 +20,7 @@ Rules.
 {N}+         :  {token, {name, TokenLine, list_to_binary(TokenChars)}}.
 {WS}+        :  skip_token.
 {COMP}       :  emit_comparator(TokenLine, strip_ws(TokenChars)).
+{BOOL}       :  emit_bool(TokenLine, strip_ws(TokenChars)).
 
 Erlang code.
 %% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92 -*-
@@ -56,3 +60,8 @@ emit_comparator(TokenLine, ">=") ->
     {token, {comparator, TokenLine, '>='}};
 emit_comparator(TokenLine, "=<") ->
     {token, {comparator, TokenLine, '=<'}}.
+
+emit_bool(TokenLine, "&&") ->
+    {token, {bool, TokenLine, 'and'}};
+emit_bool(TokenLine, "||") ->
+    {token, {bool, TokenLine, 'or'}}.

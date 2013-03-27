@@ -1,20 +1,21 @@
 Nonterminals
-stmts stmt value.
+stmt exprs expr value.
 
 Terminals
-name integer float string comparator eos.
+name integer float string comparator bool.
 
-Rootsymbol stmts.
+Rootsymbol stmt.
 
 value -> integer : '$1'.
 value -> float   : '$1'.
 value -> string  : '$1'.
 value -> name    : '$1'.
 
-stmts -> stmts eos stmt: '$3' ++ '$1'.
-stmts -> stmt: '$1'.
-stmt -> name comparator value: build_evaluator('$1', '$2', '$3').
-stmt -> name: build_evaluator('$1').
+stmt  -> exprs: '$1'.
+exprs -> expr bool exprs: build_bool_evaluator('$2', '$1', '$3').
+exprs -> expr: '$1'.
+expr  -> name comparator value: build_evaluator('$1', '$2', '$3').
+expr  -> name: build_evaluator('$1').
 
 Erlang code.
 %% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92 -*-
@@ -37,25 +38,28 @@ Erlang code.
 %% under the License.
 %%
 
+-include("crest.hrl").
+
 -export([string/1]).
 
 string(Text) ->
     {ok, Tokens, _} = crest_lexer:string(Text),
     case parse(Tokens) of
         {error, {Line, crest_parser, Error}} ->
-            lager:error("Parse error on ~p: ~s~n", [Line, Error]);
+            lager:error("Parse error on ~p: ~s~n", [Line, Error]),
+            {error, failed_parse};
         {ok, Funs} ->
             {ok, fun(ContextName, CurrentValue) -> eval_all(ContextName, CurrentValue, Funs) end}
     end.
 
-eval_all(CN, CV, F) when is_function(F) ->
-    F(CN, CV);
-eval_all(CN, CV, [H]) when is_function(H) ->
-    H(CN, CV);
-eval_all(CN, CV, [H|T]) when is_function(H) ->
-    case H(CN, CV) of
+eval_all(N, CV, F) when is_function(F) ->
+    F(N, CV);
+eval_all(N, CV, [H]) when is_function(H) ->
+    H(N, CV);
+eval_all(N, CV, [H|T]) when is_function(H) ->
+    case H(N, CV) of
         true ->
-            eval_all(CN, CV, T);
+            eval_all(N, CV, T);
         False ->
             False
     end.
@@ -65,7 +69,12 @@ build_evaluator({name, _, Name}) ->
 
 build_evaluator({name, _, Name}, {comparator, _, Comp}, Value) ->
     ValEval = build_value_evaluator(Value),
-    [fun(CN, CV) -> evaluate_criteria(CN, CV, Name, ValEval, Comp) end].
+    [fun(N, CV) -> evaluate_criteria(N, CV, Name, ValEval, Comp) end].
+
+build_bool_evaluator({bool, _, 'and'}, First, Second) ->
+    fun(N, CV) -> eval_all(N, CV, First) andalso eval_all(N, CV, Second) end;
+build_bool_evaluator({bool, _, 'or'}, First, Second) ->
+    fun(N, CV) -> eval_all(N, CV, First) orelse eval_all(N, CV, Second) end.
 
 build_value_evaluator({float, _, V}) ->
     fun() -> V end;
@@ -93,7 +102,7 @@ evaluate_criteria(Name, Current, Name, ProposedEval, Comp) ->
         true ->
             true
     end;
-evaluate_criteria(_CN, _CV, Name, ProposedEval, Comp) ->
+evaluate_criteria(_N, _CV, Name, ProposedEval, Comp) ->
     Current = crest_value:read(Name),
     Proposed = ProposedEval(),
     case erlang:Comp(Current, Proposed) of
