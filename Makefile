@@ -1,6 +1,7 @@
 DEPS = deps/jiffy deps/gproc deps/webmachine deps/proper deps/lager
 GENERATED_SRC_FILES = ebin/crest_lexer.beam ebin/crest_parser.beam
 DIALYZER = dialyzer -nn
+DIALYZER_PLT = crest.plt
 
 all: dialyzer
 
@@ -44,12 +45,12 @@ compile_app:
 plt_clean:
 	@$(DIALYZER) --build_plt --apps erts kernel stdlib crypto public_key ssl
 
-plt: $(DEPS)
-	@$(DIALYZER) --add_to_plt deps/*/ebin
+$(DIALYZER_PLT): compile
+	@$(DIALYZER) --build_plt deps/*/ebin --output_plt $(DIALYZER_PLT)
 
-dialyzer: plt compile
+dialyzer: compile
 	@rm -f $(GENERATED_SRC_FILES)
-	$(DIALYZER) -Wunderspecs -Werror_handling -Wrace_conditions -I deps -r ebin
+	@$(DIALYZER) --plts ${HOME}/.dialyzer_plt $(DIALYZER_PLT) -Wunderspecs -Werror_handling -Wrace_conditions -I deps -r ebin
 	@rebar skip_deps=true compile >& /dev/null
 
 eunit: compile

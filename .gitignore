@@ -5,3 +5,4 @@ src/crest_parser.erl
 src/crest_lexer.erl
 log/*
 erl_crash.dump
+crest.plt
