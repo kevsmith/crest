@@ -3,7 +3,7 @@ GENERATED_SRC_FILES = ebin/crest_lexer.beam ebin/crest_parser.beam
 DIALYZER = dialyzer -nn
 DIALYZER_PLT = crest.plt
 
-all: dialyzer
+all: compile
 
 shell: compile
 ifdef NORUN
@@ -16,14 +16,6 @@ ifndef NORUN
 	@/bin/sleep 1
 	@erl -K true -pa ./deps/*/ebin -pa ./ebin -eval "crest_app:manual_start()."
 endif
-
-use_locked_config = $(wildcard USE_REBAR_LOCKED)
-ifeq ($(use_locked_config),USE_REBAR_LOCKED)
-  rebar_config = rebar.config.lock
-else
-  rebar_config = rebar.config
-endif
-REBAR = rebar -C $(rebar_config)
 
 clean:
 	@$(REBAR) clean
