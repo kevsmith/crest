@@ -25,7 +25,9 @@
 -include("crest.hrl").
 
 %% API
--export([start_link/2]).
+-export([start_link/2,
+         read/2,
+         write/2]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -38,23 +40,35 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {name,
+                store,
                 duration,
                 tref}).
-
--define(VERSION
 
 start_link(Name, Duration) ->
     gen_server:start_link([Name, Duration], []).
 
+read(ChannelRef, Actor) ->
+    call(ChannelRef, {read, Actor}).
+
+write(ChannelRef, Msg) ->
+    call(ChannelRef, {write, Msg}).
+
 init([Name, Duration]) ->
     case catch gproc:add_local_name(?CREST_CHANNEL(Name)) of
         true ->
-            {ok, Tref} = timer:send_after(Duration, destroy),
-            {ok, #state{name=Name, duration=Duration, tref=Tref}};
+            {ok, Tref} = timer:send_after(Duration, teardown),
+            {ok, Store} = crest_channel_file:open(Name),
+            {ok, #state{name=Name, duration=Duration, tref=Tref, store=Store}};
         {'EXIT', {badarg, _}} ->
             {error, already_allocated}
     end.
 
+handle_call({read, Actor}, _From, #state{store=Store}=State) ->
+    Reply = crest_channel_file:read(Store, Actor),
+    {reply, Reply, State};
+handle_call({write, Msg}, _From, #state{store=Store}=State) ->
+    Reply = crest_channel_file:write(Store, Msg),
+    {reply, Reply, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
@@ -71,3 +85,14 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Internal functions
+call(ChannelRef, Msg) when is_binary(ChannelRef) ->
+    case gproc:lookup_local_name(?CREST_CHANNEL(ChannelRef)) of
+        undefined ->
+            exit({{not_found, ChannelRef}, [{?MODULE, call, [ChannelRef, Msg]}]});
+
+        Pid ->
+            call(Pid, Msg, infinity)
+    end.
+
+call(Channel, Msg, Timeout) when is_pid(Channel) ->
+    gen_server:call(Channel, Msg, Timeout).
