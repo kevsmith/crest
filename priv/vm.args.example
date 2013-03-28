@@ -1,0 +1,6 @@
++K true
+-name 'crest@172.28.8.74'
+-setcookie foo
+-config ./priv/app.config
+-boot start_sasl
+-eval "crest_app:manual_start()."

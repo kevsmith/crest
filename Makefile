@@ -1,4 +1,4 @@
-DEPS = deps/jiffy deps/gproc deps/webmachine deps/lager deps/eleveldb
+DEPS = deps/jiffy deps/gproc deps/webmachine deps/lager deps/eleveldb deps/harasser
 GENERATED_SRC_FILES = ebin/crest_lexer.beam ebin/crest_parser.beam
 DIALYZER = dialyzer -nn
 DIALYZER_PLT = crest.plt
@@ -9,21 +9,19 @@ all: compile
 shell: compile
 ifdef NORUN
 	@/bin/echo "Starting VM ONLY"
-	@/bin/echo "Loading application config from ${CONFIG}"
 	@/bin/sleep 1
-	@erl +K true -pa ./deps/*/ebin -pa ./ebin -name 'crest@172.28.8.74' -setcookie foo -config ${CONFIG} -boot start_sasl
+	@erl -args_file ./priv/vm.args.nr
 endif
 ifndef NORUN
 	@/bin/echo "Starting VM AND crest"
-	@/bin/echo "Loading application config from ${CONFIG}"
 	@/bin/sleep 1
-	@erl +K true -name 'crest@172.28.8.74' -setcookie foo -config ${CONFIG} -pa ./deps/*/ebin -pa ./ebin -boot start_sasl -eval "crest_app:manual_start()."
+	@erl -pa deps/*/ebin -pa ebin -args_file ./priv/vm.args
 endif
 
 run:
 	@/bin/echo "Starting VM AND crest"
 	@/bin/sleep 1
-	@erl +K true -pa ./deps/*/ebin -pa ./ebin -eval "crest_app:manual_start()."
+	@erl -pa deps/*/ebin -pa ebin -args_file ./priv/vm.args
 
 clean:
 	@$(REBAR) clean
