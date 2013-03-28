@@ -51,16 +51,16 @@ init([]) ->
                  {log_dir, "priv/log"},
                  {dispatch, Dispatch}],
 
-    Children = [child_spec(crest_channels, [], supervisor),
-                child_spec(crest_barriers, [], supervisor)],
-    Children1 = case application:get_env(crest, web) of
-                    true ->
-                        [child_spec(webmachine_mochiweb, [WebConfig], web)|Children];
-                    _ ->
-                        Children
+    Children = case application:get_env(crest, active) of
+                   true ->
+                       [child_spec(webmachine_mochiweb, [WebConfig], web),
+                        child_spec(crest_channels, [], supervisor),
+                        child_spec(crest_barriers, [], supervisor)];
+                   _ ->
+                       []
                 end,
 
-    {ok, {{one_for_one, 5, 10}, Children1}}.
+    {ok, {{one_for_one, 5, 10}, Children}}.
 
 
 %% Internal functions
