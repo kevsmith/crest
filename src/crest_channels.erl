@@ -44,7 +44,7 @@ start_link() ->
 
 -spec exists(crest_entity_name()) -> boolean().
 exists(Name) ->
-    case gproc:lookup_local_name(?CREST_CHANNEL(Name)) of
+    case gproc:lookup_global_name(?CREST_CHANNEL(Name)) of
         undefined ->
             false;
         Pid when is_pid(Pid) ->
@@ -54,7 +54,7 @@ exists(Name) ->
 -spec get(crest_entity_name(), pos_integer()) -> created | exists.
 get(Name, Duration) when is_binary(Name),
                          Duration > 0 ->
-    case gproc:lookup_local_name(?CREST_CHANNEL(Name)) of
+    case gproc:lookup_global_name(?CREST_CHANNEL(Name)) of
         undefined ->
             case create_channel(Name, Duration) of
                 {ok, _Pid} ->
@@ -76,4 +76,4 @@ init([]) ->
             temporary, brutal_kill, worker, [crest_barrier]}]}}.
 
 create_channel(Name, Duration) ->
-    supervisor:start_child(?SERVER, [Name, Duration]).
+    supervisor:start_child({global, ?SERVER}, [Name, Duration]).

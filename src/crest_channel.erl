@@ -54,7 +54,7 @@ write(ChannelRef, Msg) ->
     call(ChannelRef, {write, Msg}).
 
 init([Name, Duration]) ->
-    case catch gproc:add_local_name(?CREST_CHANNEL(Name)) of
+    case catch gproc:add_global_name(?CREST_CHANNEL(Name)) of
         true ->
             {ok, Tref} = timer:send_after(Duration, teardown),
             {ok, Store} = crest_channel_file:open(Name),
@@ -75,6 +75,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+handle_info(teardown, #state{store=Store}=State) ->
+    crest_channel_file:close(Store),
+    {stop, shutdown, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -86,7 +89,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Internal functions
 call(ChannelRef, Msg) when is_binary(ChannelRef) ->
-    case gproc:lookup_local_name(?CREST_CHANNEL(ChannelRef)) of
+    case gproc:lookup_global_name(?CREST_CHANNEL(ChannelRef)) of
         undefined ->
             exit({{not_found, ChannelRef}, [{?MODULE, call, [ChannelRef, Msg]}]});
 

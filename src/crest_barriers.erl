@@ -40,11 +40,11 @@
 %% ------------------------------------------------------------------
 
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({global, ?SERVER}, ?MODULE, []).
 
 -spec exists(crest_entity_name()) -> boolean().
 exists(Name) ->
-    case gproc:lookup_local_name(?CREST_BARRIER(Name)) of
+    case gproc:lookup_global_name(?CREST_BARRIER(Name)) of
         undefined ->
             false;
         Pid when is_pid(Pid) ->
@@ -54,7 +54,7 @@ exists(Name) ->
 -spec get(crest_entity_name(), pos_integer(), boolean()) -> created | exists.
 get(Name, Count, Recycle) when is_binary(Name),
                       Count >= 0 ->
-    case gproc:lookup_local_name(?CREST_BARRIER(Name)) of
+    case gproc:lookup_global_name(?CREST_BARRIER(Name)) of
         undefined ->
             case create_barrier(Name, Count, Recycle) of
                 {ok, _Pid} ->
@@ -76,4 +76,4 @@ init([]) ->
             temporary, brutal_kill, worker, [crest_barrier]}]}}.
 
 create_barrier(Name, Count, Recycle) ->
-    supervisor:start_child(?SERVER, [Name, Count, Recycle]).
+    supervisor:start_child({global, ?SERVER}, [Name, Count, Recycle]).

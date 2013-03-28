@@ -65,7 +65,7 @@ destroy(BarrierRef) ->
     call(BarrierRef, destroy, 5000).
 
 init([Name, Count, Recycle]) ->
-    case catch gproc:add_local_name(?CREST_BARRIER(Name)) of
+    case catch gproc:add_global_name(?CREST_BARRIER(Name)) of
         true ->
             {ok, #state{count=Count, clients=[], recycle=Recycle}};
         {'EXIT', {badarg, _}} ->
@@ -115,7 +115,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 -spec call(BarrierRef::crest_entity_ref(), Msg::crest_barrier_msg(), Timeout::pos_integer()) -> term() | no_return().
 call(BarrierRef, Msg, Timeout) when is_binary(BarrierRef) ->
-    case gproc:lookup_local_name(?CREST_BARRIER(BarrierRef)) of
+    case gproc:lookup_global_name(?CREST_BARRIER(BarrierRef)) of
         undefined ->
             exit({{not_found, BarrierRef}, [{?MODULE, call, [BarrierRef, Msg]}]});
 
