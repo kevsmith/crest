@@ -33,6 +33,7 @@
 
 manual_start() ->
     start_deps([crypto,
+                harasser,
                 lager,
                 mochiweb,
                 gproc,
